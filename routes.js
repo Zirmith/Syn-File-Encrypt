@@ -40,7 +40,7 @@ const authenticateUser = (req, res, next) => {
 
 
 
- // Define endpoint for file encryption
+// Define endpoint for file encryption
 router.post('/encrypt', authenticateUser, upload.single('file'), (req, res) => {
   const { algorithm, key } = req.body;
   const inputFile = path.resolve(req.file.path);
@@ -59,7 +59,8 @@ router.post('/encrypt', authenticateUser, upload.single('file'), (req, res) => {
     }
     const newFilePath = path.resolve(`${userDir}/${req.file.originalname}.enc`);
     fs.renameSync(outputFile, newFilePath);
-    res.status(201).json({ message: 'File encrypted and stored successfully' });
+    const fileLink = `${req.protocol}://${req.get('host')}/syn/api/v1/files/${req.user.id}/${req.file.originalname}.enc`;
+    res.status(201).json({ message: 'File encrypted and stored successfully', link: fileLink });
   });
 });
 
@@ -83,10 +84,10 @@ router.post('/decrypt', authenticateUser, upload.single('file'), (req, res) => {
     }
     const newFilePath = path.resolve(`${userDir}/${req.file.originalname}.dec`);
     fs.renameSync(outputFile, newFilePath);
-    res.status(201).json({ message: 'File decrypted and stored successfully' });
+    const fileLink = `${req.protocol}://${req.get('host')}/syn/api/v1/files/${req.user.id}/${req.file.originalname}.dec`;
+    res.status(201).json({ message: 'File decrypted and stored successfully', link: fileLink });
   });
 });
-
 
 router.get('/files/:userId/:filename', (req, res) => {
     const { userId, filename } = req.params;
@@ -103,18 +104,35 @@ router.get('/files/:userId/:filename', (req, res) => {
   });
 
 
-  // Define endpoint for reporting dangerous files
+// Define endpoint for reporting dangerous files
 router.post('/report', authenticateUser, (req, res) => {
-    const { file } = req.body;
-  
-    if (!file) {
-      return res.status(400).json({ message: 'Missing file information' });
-    }
-  
-    // TODO: Add code to flag the file as dangerous in the database or log a report
-    res.status(200).json({ message: 'File reported as dangerous' });
-  });
-  
+  const { file } = req.body;
+
+  if (!file) {
+    return res.status(400).json({ message: 'Missing file information' });
+  }
+
+  // Add code to flag the file as dangerous or add a warning to the README.md file
+  const filePath = path.resolve(file);
+  const readmePath = path.resolve(`${path.dirname(file)}/README.md`);
+  const warningMsg = '\n\n**WARNING: This file may be dangerous or contain malicious code. Use with caution.**\n\n';
+
+  // Check if the file exists
+  if (!fs.existsSync(filePath)) {
+    return res.status(400).json({ message: 'File not found' });
+  }
+
+  // Add a warning to the README.md file, if it exists
+  if (fs.existsSync(readmePath)) {
+    fs.appendFileSync(readmePath, warningMsg);
+  } else {
+    // Create a new README.md file with the warning message
+    fs.writeFileSync(readmePath, warningMsg);
+  }
+
+  res.status(200).json({ message: 'File reported as dangerous' });
+});
+
 
   
   // Define endpoint for user registration
