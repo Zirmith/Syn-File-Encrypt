@@ -34,6 +34,12 @@ const authenticateUser = (req, res, next) => {
     }
 
     req.user = decoded;
+
+    const user = config.main.users.find(user => user.id === decoded.id);
+    if (!user) {
+      return res.status(401).json({ message: 'Authentication failed: invalid token' });
+    }
+
     next();
   });
 };
@@ -62,6 +68,12 @@ router.post('/encrypt', authenticateUser, upload.single('file'), (req, res) => {
     const fileLink = `${req.protocol}://${req.get('host')}/syn/api/v1/files/${req.user.id}/${req.file.originalname}.enc`;
     res.status(201).json({ message: 'File encrypted and stored successfully', link: fileLink });
   });
+
+  // Error catch
+  output.on('error', (err) => {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to encrypt file' });
+  });
 });
 
 
@@ -70,7 +82,8 @@ router.post('/decrypt', authenticateUser, upload.single('file'), (req, res) => {
   const { algorithm, key } = req.body;
   const inputFile = path.resolve(req.file.path);
   const outputFile = path.resolve(`${req.file.path}.dec`);
-  const decipher = crypto.createDecipher(algorithm, key);
+  const iv = crypto.randomBytes(16);
+  const decipher = crypto.createDecipheriv(algorithm, key, iv);
 
   const input = fs.createReadStream(inputFile);
   const output = fs.createWriteStream(outputFile);
@@ -86,6 +99,11 @@ router.post('/decrypt', authenticateUser, upload.single('file'), (req, res) => {
     fs.renameSync(outputFile, newFilePath);
     const fileLink = `${req.protocol}://${req.get('host')}/syn/api/v1/files/${req.user.id}/${req.file.originalname}.dec`;
     res.status(201).json({ message: 'File decrypted and stored successfully', link: fileLink });
+  });
+
+  decipher.on('error', (error) => {
+    console.error(`Error decrypting file: ${error}`);
+    res.status(500).json({ message: 'Error decrypting file' });
   });
 });
 
@@ -134,42 +152,50 @@ router.post('/report', authenticateUser, (req, res) => {
 });
 
 
-  
-  // Define endpoint for user registration
-  router.post('/register', (req, res) => {
+// Define endpoint for user registration
+router.post('/register', (req, res) => {
+  try {
     const { username, password } = req.body;
-  
+
     if (!username || !password) {
       return res.status(400).json({ message: 'Invalid request: missing username or password' });
     }
-  
+
     if (config.main.users.some(user => user.username === username)) {
       return res.status(400).json({ message: 'Username already exists' });
     }
-  
+
     const id = Date.now().toString();
     console.log(id)
     config.main.users.push({ id, username, password });
     res.status(201).json({ message: 'User created successfully', id });
-  });
-  
-  // Define endpoint for user login
-  router.post('/login', (req, res) => {
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Define endpoint for user login
+router.post('/login', (req, res) => {
+  try {
     const { username, password } = req.body;
-  
+
     if (!username || !password) {
       return res.status(400).json({ message: 'Invalid request: missing username or password' });
     }
-  
-    const user =  config.main.users.find(user => user.username === username && user.password === password);
-  
+
+    const user = config.main.users.find(user => user.username === username && user.password === password);
+
     if (!user) {
       return res.status(401).json({ message: 'Authentication failed: invalid credentials' });
     }
-  
+
     const token = jwt.sign({ id: user.id }, config.main.jwtSecret, { expiresIn: '1h' });
     res.status(200).json({ message: 'Login successful', token });
-  });
-  
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 
 module.exports = router;
