@@ -40,11 +40,9 @@ const authenticateUser = (req, res, next) => {
       return res.status(401).json({ message: 'Authentication failed: invalid token' });
     }
 
-    // Log hwid and ip to user object
-    user.hwid = req.headers['x-hwid'];
-    user.ip = req.ip;
+    
 
-    console.log(`Token ${token}, is being used by a user with the following credentials: username=${user.username}, hwid=${user.hwid}, ip=${user.ip}`);
+    console.log(`Token ${token}, is being used by a user with the following credentials: username=${user.username}`);
 
     next();
   });
@@ -131,21 +129,39 @@ router.get('/files/:userId/:filename', (req, res) => {
 
 // Define endpoint for reporting dangerous files
 router.post('/report', authenticateUser, (req, res) => {
-  const { file } = req.body;
+  const { url } = req.body;
 
-  if (!file) {
-    return res.status(400).json({ message: 'Missing file information' });
+  if (!url) {
+    return res.status(400).json({ message: 'Missing file URL' });
   }
 
-  // Add code to flag the file as dangerous or add a warning to the README.md file
-  const filePath = path.resolve(file);
-  const readmePath = path.resolve(`${path.dirname(file)}/README.md`);
-  const warningMsg = '\n\n**WARNING: This file may be dangerous or contain malicious code. Use with caution.**\n\n';
+  // Parse the URL to get the user ID and file name
+  const regex = /files\/(\d+)\/(.+)/;
+  const match = url.match(regex);
 
-  // Check if the file exists
+  if (!match) {
+    return res.status(400).json({ message: 'Invalid file URL' });
+  }
+
+  const userId = match[1];
+  const filename = match[2];
+
+  // Check if the user ID is valid
+  if (!config.main.users.some(user => user.id === userId)) {
+    return res.status(400).json({ message: 'Invalid user ID' });
+  }
+
+  // Check if the file exists in the user's directory
+  const userDir = path.resolve(`./users/${userId}`);
+  const filePath = path.resolve(`${userDir}/${filename}`);
+
   if (!fs.existsSync(filePath)) {
     return res.status(400).json({ message: 'File not found' });
   }
+
+  // Add code to flag the file as dangerous or add a warning to the README.md file
+  const readmePath = path.resolve(`${userDir}/README.md`);
+  const warningMsg = '\n\n**WARNING: This file may be dangerous or contain malicious code. Use with caution.**\n\n';
 
   // Add a warning to the README.md file, if it exists
   if (fs.existsSync(readmePath)) {
@@ -155,8 +171,16 @@ router.post('/report', authenticateUser, (req, res) => {
     fs.writeFileSync(readmePath, warningMsg);
   }
 
-  res.status(200).json({ message: 'File reported as dangerous' });
+  // Zip the file and send it back as a response
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.pipe(res);
+
+  archive.file(filePath, { name: filename });
+
+  archive.finalize();
 });
+
+
 
 
 // Define endpoint for user registration
@@ -178,9 +202,7 @@ router.post('/register', (req, res) => {
 
     res.status(201).json({ message: 'User created successfully', id });
 
-    // Log hwid and ip to user object
-    user.hwid = req.headers['x-hwid'];
-    user.ip = req.ip;
+   
 
   } catch (err) {
     console.error(err);
