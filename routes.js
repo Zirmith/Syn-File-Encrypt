@@ -20,16 +20,13 @@ const upload = multer({
   })
 });
 
+// Define user authentication middleware
 const authenticateUser = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Authentication failed: missing token' });
   }
   const token = authHeader.split(' ')[1];
-
-  const remoteAddress = req.socket.remoteAddress;
-  const hwid = req.user.hwid;
-  console.log(`Token ${token}, is being used by a user with the following credentials: HWID ${hwid}, IP ${remoteAddress}`);
 
   jwt.verify(token, config.main.jwtSecret, (err, decoded) => {
     if (err) {
@@ -42,6 +39,12 @@ const authenticateUser = (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: 'Authentication failed: invalid token' });
     }
+
+    // Log hwid and ip to user object
+    user.hwid = req.headers['x-hwid'];
+    user.ip = req.ip;
+
+    console.log(`Token ${token}, is being used by a user with the following credentials: username=${user.username}, hwid=${user.hwid}, ip=${user.ip}`);
 
     next();
   });
@@ -170,14 +173,21 @@ router.post('/register', (req, res) => {
     }
 
     const id = Date.now().toString();
-    console.log(id)
-    config.main.users.push({ id, username, password });
+    const user = { id, username, password };
+    config.main.users.push(user);
+
     res.status(201).json({ message: 'User created successfully', id });
+
+    // Log hwid and ip to user object
+    user.hwid = req.headers['x-hwid'];
+    user.ip = req.ip;
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
 
 // Define endpoint for user login
 router.post('/login', (req, res) => {
