@@ -159,6 +159,12 @@ router.post('/report', authenticateUser, (req, res) => {
     return res.status(400).json({ message: 'File not found' });
   }
 
+  // Create a new directory for the dangerous files
+  const newDirPath = path.resolve(`${userDir}/dangerous_files`);
+  if (!fs.existsSync(newDirPath)) {
+    fs.mkdirSync(newDirPath);
+  }
+
   // Add code to flag the file as dangerous or add a warning to the README.md file
   const readmePath = path.resolve(`${userDir}/README.md`);
   const warningMsg = '\n\n**WARNING: This file may be dangerous or contain malicious code. Use with caution.**\n\n';
@@ -171,14 +177,15 @@ router.post('/report', authenticateUser, (req, res) => {
     fs.writeFileSync(readmePath, warningMsg);
   }
 
-  // Zip the file and send it back as a response
-  const archive = archiver('zip', { zlib: { level: 9 } });
-  archive.pipe(res);
+  // Move the file to the new directory
+  const newFilePath = path.resolve(`${newDirPath}/${filename}`);
+  fs.renameSync(filePath, newFilePath);
 
-  archive.file(filePath, { name: filename });
-
-  archive.finalize();
+  // Send a response with the link to the new file
+  const fileLink = `http://syn-encrypt.onrender.com/syn/api/v1/files/${userId}/dangerous_files/${filename}`;
+  res.status(200).json({ message: 'File reported as dangerous', link: fileLink });
 });
+
 
 
 
