@@ -135,6 +135,8 @@ router.post('/report', authenticateUser, (req, res) => {
     return res.status(400).json({ message: 'Missing file URL' });
   }
 
+  console.log(`Got Url: ${url}`);
+
   // Parse the URL to get the user ID and file name
   const regex = /files\/(\d+)\/(.+)/;
   const match = url.match(regex);
@@ -144,8 +146,9 @@ router.post('/report', authenticateUser, (req, res) => {
   }
 
   const userId = match[1];
+  console.log(`User Id Of Reported Url: ${userId}`)
   const filename = match[2];
-
+  console.log(`File Name Of Reported Url: ${filename}`)
   // Check if the user ID is valid
   if (!config.main.users.some(user => user.id === userId)) {
     return res.status(400).json({ message: 'Invalid user ID' });
@@ -169,12 +172,16 @@ router.post('/report', authenticateUser, (req, res) => {
   const readmePath = path.resolve(`${userDir}/README.md`);
   const warningMsg = '\n\n**WARNING: This file may be dangerous or contain malicious code. Use with caution.**\n\n';
 
+  console.log(`Writing Warning File to ${newDirPath}`)
+
   // Add a warning to the README.md file, if it exists
   if (fs.existsSync(readmePath)) {
     fs.appendFileSync(readmePath, warningMsg);
+    console.log(`Warning has been Wrote`)
   } else {
     // Create a new README.md file with the warning message
     fs.writeFileSync(readmePath, warningMsg);
+    console.log(`Warning has been Wrote`)
   }
 
   // Move the file to the new directory
@@ -183,6 +190,7 @@ router.post('/report', authenticateUser, (req, res) => {
 
   // Send a response with the link to the new file
   const fileLink = `http://syn-encrypt.onrender.com/syn/api/v1/files/${userId}/dangerous_files/${filename}`;
+  console.warn(`Completed Warning / report of file ${fileLink}`)
   res.status(200).json({ message: 'File reported as dangerous', link: fileLink });
 });
 
