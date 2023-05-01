@@ -20,13 +20,16 @@ const upload = multer({
   })
 });
 
-// Define user authentication middleware
 const authenticateUser = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Authentication failed: missing token' });
   }
   const token = authHeader.split(' ')[1];
+
+  const remoteAddress = req.socket.remoteAddress;
+  const hwid = req.user.hwid;
+  console.log(`Token ${token}, is being used by a user with the following credentials: HWID ${hwid}, IP ${remoteAddress}`);
 
   jwt.verify(token, config.main.jwtSecret, (err, decoded) => {
     if (err) {
@@ -43,6 +46,7 @@ const authenticateUser = (req, res, next) => {
     next();
   });
 };
+
 
 
 
