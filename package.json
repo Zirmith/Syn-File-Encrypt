@@ -2,9 +2,10 @@
   "name": "Syn-File-Encrypt",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon ."
   },
   "repository": {
     "type": "git",
@@ -26,6 +27,7 @@
     "getmac": "^5.20.0",
     "jsonwebtoken": "^9.0.0",
     "multer": "^1.4.5-lts.1",
+    "nodemon": "^2.0.22",
     "request-ip": "^3.3.0",
     "request-promise-native": "^1.0.9",
     "stegcloak": "^1.1.1",
