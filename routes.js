@@ -128,7 +128,7 @@ router.get('/files/:userId/:filename', (req, res) => {
 
 
 // Define endpoint for reporting dangerous files
-router.post('/report', authenticateUser, (req, res) => {
+router.post('/report', authenticateUser, upload.none(), (req, res) => {
   const { url } = req.body;
 
   if (!url) {
